@@ -1,0 +1,5 @@
+# Starting balance given to new players
+starting-balance: 1000.0
+
+# Currency symbol displayed in messages
+currency-symbol: '$'

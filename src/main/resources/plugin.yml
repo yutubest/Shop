@@ -1,0 +1,20 @@
+name: MinecraftShop
+version: '1.0.0'
+main: com.shop.ShopPlugin
+api-version: '1.21'
+description: A simple shop plugin with SQLite database
+authors: [ Claude ]
+
+commands:
+  shop:
+    description: Open the shop or manage it
+    usage: /shop [balance|give|add|remove|reload]
+    aliases: [ s ]
+
+permissions:
+  shop.use:
+    description: Allows using the shop
+    default: true
+  shop.admin:
+    description: Allows admin shop commands (give, add, remove, reload)
+    default: op
