@@ -36,25 +36,18 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
         }
 
         return switch (args[0].toLowerCase()) {
-            case "balance", "bal" -> cmdBalance(player);
-            case "give"           -> cmdGive(player, args);
-            case "add"            -> cmdAdd(player, args);
-            case "remove"         -> cmdRemove(player, args);
-            case "reload"         -> cmdReload(player);
-            default               -> {
-                msg(player, "Unknown subcommand. Usage: /shop [balance|give|add|remove|reload]", NamedTextColor.RED);
+            case "give"   -> cmdGive(player, args);
+            case "add"    -> cmdAdd(player, args);
+            case "remove" -> cmdRemove(player, args);
+            case "reload" -> cmdReload(player);
+            default       -> {
+                msg(player, "Unknown subcommand. Usage: /shop [give|add|remove|reload]", NamedTextColor.RED);
                 yield true;
             }
         };
     }
 
     // ── Subcommands ───────────────────────────────────────────────────────────
-
-    private boolean cmdBalance(Player player) {
-        double balance = plugin.getEconomyManager().getBalance(player);
-        msg(player, "Your balance: " + plugin.getEconomyManager().format(balance), NamedTextColor.GOLD);
-        return true;
-    }
 
     private boolean cmdGive(Player player, String[] args) {
         if (!player.hasPermission("shop.admin")) { noPermission(player); return true; }
@@ -133,7 +126,7 @@ public class ShopCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("balance", "give", "add", "remove", "reload");
+            return Arrays.asList("give", "add", "remove", "reload");
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("add")) {
             return Collections.emptyList(); // too many materials to list

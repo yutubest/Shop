@@ -1,5 +1,6 @@
 package com.shop;
 
+import com.shop.commands.BalanceCommand;
 import com.shop.commands.ShopCommand;
 import com.shop.database.DatabaseManager;
 import com.shop.economy.EconomyManager;
@@ -34,6 +35,10 @@ public class ShopPlugin extends JavaPlugin {
         ShopCommand shopCommand = new ShopCommand(this);
         getCommand("shop").setExecutor(shopCommand);
         getCommand("shop").setTabCompleter(shopCommand);
+
+        BalanceCommand balanceCommand = new BalanceCommand(this);
+        getCommand("balance").setExecutor(balanceCommand);
+        getCommand("balance").setTabCompleter(balanceCommand);
 
         getLogger().info("MinecraftShop v" + getDescription().getVersion() + " enabled!");
     }

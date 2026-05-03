@@ -8,13 +8,17 @@ authors: [ Claude ]
 commands:
   shop:
     description: Open the shop or manage it
-    usage: /shop [balance|give|add|remove|reload]
+    usage: /shop [give|add|remove|reload]
     aliases: [ s ]
+  balance:
+    description: Display your account balance
+    usage: /balance [player]
+    aliases: [ bal, money ]
 
 permissions:
   shop.use:
-    description: Allows using the shop
+    description: Allows using the shop and checking own balance
     default: true
   shop.admin:
-    description: Allows admin shop commands (give, add, remove, reload)
+    description: Allows admin shop commands (give, add, remove, reload) and checking other players' balances
     default: op
