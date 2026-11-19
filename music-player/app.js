@@ -10,17 +10,19 @@ const store = {
 
 const DEFAULTS = {
   own: '',
+  key: '',
   piped: [
     'https://api.piped.private.coffee',
+    'https://pipedapi.ducks.party',
     'https://pipedapi.kavin.rocks',
     'https://pipedapi.adminforge.de',
     'https://pipedapi.leptons.xyz',
     'https://pipedapi.nosebs.ru',
-    'https://pipedapi.ducks.party',
     'https://pipedapi.reallyaweso.me',
     'https://pipedapi.drgns.space',
   ],
   inv: [
+    'https://invidious.materialio.us',
     'https://yewtu.be',
     'https://inv.nadeko.net',
     'https://invidious.nerdvpn.de',
@@ -43,7 +45,7 @@ const state = {
 const $ = (s) => document.querySelector(s);
 const audio = $('#audio');
 const video = $('#video');
-const media = () => (state.video ? video : audio);
+const media = () => (state.yt ? yt : state.video ? video : audio);
 const thumb = (id) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 const clean = (u) => (u || '').trim().replace(/\/+$/, '');
 const fmt = (s) => {
@@ -118,16 +120,32 @@ async function searchWith(src, q, type) {
   }));
 }
 
+const decodeHtml = (t) => { const d = document.createElement('textarea'); d.innerHTML = t; return d.value; };
+async function googleSearch(q, type) {
+  const u = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=25'
+    + (type === 'music' ? '&videoCategoryId=10' : '') + '&q=' + encodeURIComponent(q) + '&key=' + encodeURIComponent(settings.key);
+  const d = await getJSON(u);
+  return (d.items || []).map((i) => ({
+    id: i.id.videoId, title: decodeHtml(i.snippet.title),
+    artist: decodeHtml(i.snippet.channelTitle || '').replace(/ - Topic$/, ''), duration: 0,
+  })).filter((t) => t.id);
+}
+
 async function search(q, type) {
-  let lastErr;
-  for (const src of sources()) {
-    try {
-      const res = await searchWith(src, q, type);
-      if (res && res.length) { markGood(src); return res; }
-    } catch (e) { lastErr = e; }
+  const errs = [];
+  if (clean(settings.key)) {
+    try { const r = await googleSearch(q, type); if (r.length) return r; } catch (e) { errs.push('Google: ' + e.message); }
   }
-  if (lastErr) throw lastErr;
-  return [];
+  const list = sources();
+  if (list[0]?.kind === 'own') {
+    try { const r = await searchWith(list[0], q, type); if (r.length) return r; } catch (e) { errs.push('Savs serveris: ' + e.message); }
+  }
+  // Visi publiskie serveri vienlaicīgi — uzvar ātrākais
+  try {
+    return await Promise.any(list.filter((s) => s.kind !== 'own').map((src) =>
+      searchWith(src, q, type).then((r) => { if (!r.length) throw new Error('tukšs'); markGood(src); return r; })));
+  } catch { errs.push('publiskie serveri neatbild'); }
+  throw new Error(errs.join('; '));
 }
 
 const streamCache = new Map();
@@ -163,17 +181,68 @@ async function resolveStream(id, wantVideo, exclude = new Set()) {
   const key = id + (wantVideo ? ':v' : ':a');
   const c = streamCache.get(key);
   if (c && Date.now() - c.t < 3600e3 && !exclude.has(c.src.base)) return c;
-  for (const src of sources()) {
-    if (exclude.has(src.base)) continue;
-    try {
-      const url = await streamWith(src, id, wantVideo);
-      const r = { url, src, t: Date.now() };
-      streamCache.set(key, r); markGood(src);
-      return r;
-    } catch {}
-  }
-  throw new Error('Neviens serveris neatbildēja');
+  const list = sources().filter((s) => !exclude.has(s.base));
+  const ok = (src, url) => { const r = { url, src, t: Date.now() }; streamCache.set(key, r); markGood(src); return r; };
+  if (list[0]?.kind === 'own') return ok(list[0], await streamWith(list[0], id, wantVideo));
+  try {
+    return await Promise.any(list.map((src) => streamWith(src, id, wantVideo).then((url) => ok(src, url))));
+  } catch { throw new Error('nav bezreklāmu straumes'); }
 }
+
+// ---------- Rezerves atskaņotājs: oficiālais YouTube (strādā vienmēr, bet var būt reklāmas un apstāties ar izslēgtu ekrānu) ----------
+const yt = {
+  player: null, ready: null, paused: true, playbackRate: 1, id: null,
+  get currentTime() { return this.player?.getCurrentTime?.() || 0; },
+  set currentTime(v) { this.player?.seekTo?.(v, true); },
+  get duration() { return this.player?.getDuration?.() || 0; },
+  play() { this.player?.playVideo?.(); return Promise.resolve(); },
+  pause() { this.player?.pauseVideo?.(); },
+  getAttribute() { return this.id; },
+};
+function loadYT() {
+  if (yt.ready) return yt.ready;
+  yt.ready = new Promise((res, rej) => {
+    window.onYouTubeIframeAPIReady = () => {
+      yt.player = new YT.Player('yt-player', {
+        width: '100%', height: '100%',
+        playerVars: { playsinline: 1, autoplay: 1, rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => res(),
+          onStateChange: (e) => {
+            if (!state.yt) return;
+            if (e.data === 1) { yt.paused = false; setPlayIcons(true); setStatus(''); }
+            if (e.data === 2) { yt.paused = true; setPlayIcons(false); }
+            if (e.data === 0) { yt.paused = true; next(true); }
+          },
+          onError: () => {
+            if (!state.yt) return;
+            setStatus(location.protocol === 'file:' ? 'YouTube atskaņotājs nestrādā no lokāla faila — atver lapu no interneta adreses.' : 'Šo video nevar atskaņot');
+            const my = state.loadId; setTimeout(() => { if (my === state.loadId) next(true); }, 2500);
+          },
+        },
+      });
+    };
+    const sc = document.createElement('script');
+    sc.src = 'https://www.youtube.com/iframe_api'; sc.onerror = () => { yt.ready = null; rej(new Error('YouTube nav pieejams')); };
+    document.head.append(sc);
+  });
+  return yt.ready;
+}
+async function playWithYT(t, at, myId) {
+  state.yt = true; audio.pause(); video.pause();
+  $('#yt-wrap').hidden = false; $('#full-art').hidden = true; $('#video').hidden = true;
+  setStatus('Rezerves režīms (YouTube atskaņotājs)');
+  await loadYT();
+  if (myId !== state.loadId) return;
+  yt.id = t.id;
+  yt.player.loadVideoById({ videoId: t.id, startSeconds: at || 0 });
+}
+function leaveYT() {
+  if (!state.yt) return;
+  state.yt = false; yt.pause(); yt.id = null;
+  $('#yt-wrap').hidden = true; $('#full-art').hidden = state.video; $('#video').hidden = !state.video;
+}
+setInterval(() => { if (state.yt && !yt.paused) onTime(); }, 500);
 
 // ---------- Atskaņošana ----------
 let currentSrc = null, failed = new Set();
@@ -189,6 +258,7 @@ async function loadAndPlay(resumeAt = 0, retry = false) {
   const t = current(); if (!t) return;
   const myId = ++state.loadId;
   if (!retry) failed = new Set();
+  leaveYT();
   updateNowPlaying();
   setStatus('Ielādē…');
   const el = media(), other = state.video ? audio : video;
@@ -205,9 +275,13 @@ async function loadAndPlay(resumeAt = 0, retry = false) {
     prefetchNext();
   } catch (e) {
     if (myId !== state.loadId) return;
-    setStatus('Neizdevās ielādēt: ' + e.message);
-    toast('Neizdevās — mēģinu nākamo dziesmu');
-    setTimeout(() => { if (myId === state.loadId) next(true); }, 1500);
+    el.pause(); el.removeAttribute('src');
+    try { await playWithYT(t, resumeAt, myId); saveLast(); }
+    catch (e2) {
+      setStatus('Neizdevās ielādēt: ' + e2.message);
+      toast('Neizdevās — mēģinu nākamo dziesmu');
+      setTimeout(() => { if (myId === state.loadId) next(true); }, 1500);
+    }
   }
 }
 
@@ -265,6 +339,7 @@ function togglePlay() {
 
 async function toggleVideo() {
   const t = current(); if (!t) return;
+  if (state.yt) { toast('Rezerves režīmā video jau ir redzams'); return; }
   const at = media().currentTime || 0;
   state.video = !state.video;
   $('#video').hidden = !state.video; $('#full-art').hidden = state.video;
@@ -449,7 +524,7 @@ async function doSearch() {
     renderTracks($('#search-results'), res);
   } catch (e) {
     if (my !== searchId) return;
-    $('#search-status').textContent = 'Serveri neatbild. Pamēģini vēlreiz vai pievieno citu serveri iestatījumos.';
+    $('#search-status').textContent = 'Meklēšana neizdevās (' + e.message + '). ' + (clean(settings.key) ? '' : 'Ieliec Google API atslēgu Iestatījumos — tad meklēšana strādās vienmēr.');
   }
 }
 $('#search-form').addEventListener('submit', (e) => { e.preventDefault(); $('#search-input').blur(); doSearch(); });
@@ -497,12 +572,13 @@ $('#del-pl').addEventListener('click', () => {
 // Iestatījumi
 function fillSettings() {
   $('#own-server').value = settings.own || '';
+  $('#yt-key').value = settings.key || '';
   $('#piped-list').value = settings.piped.join('\n');
   $('#inv-list').value = settings.inv.join('\n');
 }
 $('#save-settings').addEventListener('click', () => {
   const lines = (s) => s.split('\n').map(clean).filter(Boolean);
-  settings = { own: clean($('#own-server').value), piped: lines($('#piped-list').value), inv: lines($('#inv-list').value) };
+  settings = { key: $('#yt-key').value.trim(), own: clean($('#own-server').value), piped: lines($('#piped-list').value), inv: lines($('#inv-list').value) };
   store.set('sm_settings', settings); streamCache.clear(); preferred = null; store.set('sm_pref', null);
   toast('Saglabāts');
 });

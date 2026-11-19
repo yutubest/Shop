@@ -64,6 +64,18 @@
     <!-- IESTATĪJUMI -->
     <section id="view-settings" class="view">
       <h2>Iestatījumi</h2>
+      <label class="field">Google (YouTube) API atslēga — meklēšana caur Google, strādā vienmēr:
+        <input id="yt-key" type="text" placeholder="AIza…" autocomplete="off" spellcheck="false" />
+      </label>
+      <details class="hint"><summary>Kā dabūt atslēgu (bez maksas, 3 min)</summary>
+        <ol>
+          <li>Atver <b>console.cloud.google.com</b> un ielogojies ar Google kontu.</li>
+          <li>Augšā izveido jaunu projektu (jebkāds nosaukums).</li>
+          <li>Meklē “<b>YouTube Data API v3</b>” → spied <b>Enable</b>.</li>
+          <li><b>Credentials → Create credentials → API key</b>. Nokopē atslēgu (sākas ar AIza…).</li>
+          <li>Ielīmē šeit un spied <b>Saglabāt</b>. Bez maksas ~100 meklēšanas dienā.</li>
+        </ol>
+      </details>
       <label class="field">Savs serveris (neobligāti, visdrošākais):
         <input id="own-server" type="url" placeholder="piem. http://192.168.1.10:8000" />
       </label>
@@ -105,6 +117,7 @@
     <div class="stage">
       <img id="full-art" alt="" />
       <video id="video" playsinline hidden></video>
+      <div id="yt-wrap" hidden><div id="yt-player"></div></div>
     </div>
     <div class="full-info">
       <div>
