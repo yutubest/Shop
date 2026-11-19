@@ -24,7 +24,7 @@ main { padding: 0 16px; max-width: 760px; margin: 0 auto; }
 .view { display: none; }
 .view.active { display: block; }
 
-.search { display: flex; gap: 8px; margin: 8px 0; }
+.search { display: flex; gap: 8px; margin: 8px 0; position: relative; }
 .search button { background: var(--accent); color: #000; border-radius: 10px; padding: 0 16px; font-size: 18px; }
 .chips { display: flex; gap: 8px; margin: 6px 0 10px; }
 .chip { background: var(--panel2); padding: 6px 14px; border-radius: 999px; font-size: 14px; }
@@ -99,3 +99,11 @@ main { padding: 0 16px; max-width: 760px; margin: 0 auto; }
 [hidden] { display: none !important; }
 details.hint summary { cursor: pointer; color: var(--text); }
 details.hint ol { padding-left: 20px; }
+.suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); list-style: none; margin: 0; padding: 6px 0;
+  background: var(--panel); border: 1px solid #2c3140; border-radius: 12px; z-index: 15; box-shadow: 0 12px 30px #0009; }
+.suggest li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer; font-size: 15px; }
+.suggest li:active, .suggest li:hover { background: var(--panel2); }
+.suggest li > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.suggest li b { color: var(--text); font-weight: 600; }
+.suggest .s-ico { font-size: 13px; opacity: .6; }
+.search .suggest .s-fill { background: none; color: var(--muted); font-size: 16px; padding: 0 4px; border-radius: 0; }

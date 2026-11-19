@@ -131,7 +131,15 @@ async function googleSearch(q, type) {
   })).filter((t) => t.id);
 }
 
+const searchCache = new Map();
 async function search(q, type) {
+  const ck = type + '|' + q.toLowerCase();
+  if (searchCache.has(ck)) return searchCache.get(ck);
+  const r = await searchUncached(q, type);
+  searchCache.set(ck, r);
+  return r;
+}
+async function searchUncached(q, type) {
   const errs = [];
   if (clean(settings.key)) {
     try { const r = await googleSearch(q, type); if (r.length) return r; } catch (e) { errs.push('Google: ' + e.message); }
@@ -515,7 +523,7 @@ let searchId = 0;
 async function doSearch() {
   const q = $('#search-input').value.trim(); if (!q) return;
   const my = ++searchId;
-  $('#search-status').textContent = 'Meklē…'; $('#search-results').innerHTML = '';
+  $('#search-status').textContent = 'Meklē…';
   try {
     const res = await search(q, state.searchType);
     if (my !== searchId) return;
@@ -527,7 +535,57 @@ async function doSearch() {
     $('#search-status').textContent = 'Meklēšana neizdevās (' + e.message + '). ' + (clean(settings.key) ? '' : 'Ieliec Google API atslēgu Iestatījumos — tad meklēšana strādās vienmēr.');
   }
 }
-$('#search-form').addEventListener('submit', (e) => { e.preventDefault(); $('#search-input').blur(); doSearch(); });
+$('#search-form').addEventListener('submit', (e) => { e.preventDefault(); hideSuggest(); $('#search-input').blur(); doSearch(); });
+
+// ---------- Ieteikumi pēc katra burta (Google / YouTube, bez atslēgas) ----------
+let sugN = 0, sugT, autoT, lastAuto = '';
+function googleSuggest(q) {
+  return new Promise((res) => {
+    const cb = '__sug' + (++sugN), sc = document.createElement('script');
+    const done = (v) => { delete window[cb]; sc.remove(); res(v); };
+    window[cb] = (d) => done((d[1] || []).map((x) => (Array.isArray(x) ? x[0] : x)).filter(Boolean));
+    sc.onerror = () => done([]);
+    setTimeout(() => window[cb] && done([]), 4000);
+    sc.src = 'https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&hl=lv&q='
+      + encodeURIComponent(q) + '&callback=' + cb;
+    document.head.append(sc);
+  });
+}
+function hideSuggest() { $('#suggest').hidden = true; clearTimeout(autoT); }
+function showSuggest(list, q) {
+  const ul = $('#suggest');
+  if (!list.length || document.activeElement !== $('#search-input')) { ul.hidden = true; return; }
+  const ql = q.toLowerCase();
+  ul.innerHTML = list.slice(0, 8).map((t) => {
+    const i = t.toLowerCase().startsWith(ql) ? ql.length : 0;
+    return `<li data-q="${esc(t)}"><span class="s-ico">🔍</span><span><b>${esc(t.slice(0, i))}</b>${esc(t.slice(i))}</span><button type="button" class="s-fill" aria-label="Ielikt meklēšanā">↖</button></li>`;
+  }).join('');
+  ul.hidden = false;
+  ul.querySelectorAll('li').forEach((li) => li.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const q2 = li.dataset.q;
+    $('#search-input').value = q2;
+    if (e.target.closest('.s-fill')) { $('#search-input').value = q2 + ' '; onType(); return; }
+    hideSuggest(); $('#search-input').blur(); doSearch();
+  }));
+}
+function onType() {
+  const q = $('#search-input').value;
+  clearTimeout(sugT); clearTimeout(autoT);
+  if (!q.trim()) { $('#suggest').hidden = true; return; }
+  sugT = setTimeout(async () => {
+    const list = await googleSuggest(q);
+    if ($('#search-input').value === q) showSuggest(list, q.trim());
+  }, 120);
+  // Rezultāti parādās paši, kad pārstāj rakstīt
+  autoT = setTimeout(() => {
+    const v = $('#search-input').value.trim();
+    if (v.length >= 3 && v !== lastAuto) { lastAuto = v; doSearch(); }
+  }, 1200);
+}
+$('#search-input').addEventListener('input', onType);
+$('#search-input').addEventListener('focus', () => { if ($('#search-input').value.trim()) onType(); });
+$('#search-input').addEventListener('blur', () => setTimeout(() => { $('#suggest').hidden = true; }, 150));
 
 $('#mini').addEventListener('click', (e) => { if (!e.target.closest('button')) $('#full').hidden = false; });
 $('#close-full').addEventListener('click', () => { $('#full').hidden = true; });
