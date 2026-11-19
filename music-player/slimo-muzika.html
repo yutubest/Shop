@@ -122,6 +122,10 @@ details.hint ol { padding-left: 20px; }
 </style>
 </head>
 <body>
+  <div id="nojs" style="background:#ff5c5c;color:#000;padding:12px 16px;font-weight:600;line-height:1.4">
+    ⚠️ Šeit aplikācija nedarbojas: šis skatītājs nepalaiž lapas kodu, tāpēc meklēšana neko neatradīs.
+    Atver lapu Safari no interneta adreses (piem. yutubest.github.io/Shop/music-player/).
+  </div>
   <header class="top">
     <h1>Slimo Mūzika</h1>
   </header>
@@ -266,6 +270,7 @@ details.hint ol { padding-left: 20px; }
 /* Slimo Mūzika — personīgs mūzikas atskaņotājs bez reklāmām.
  * Avoti: savs serveris (server.py) → Piped → Invidious (ar automātisku pārslēgšanos). */
 'use strict';
+document.getElementById('nojs')?.remove();
 
 // ---------- Glabātuve ----------
 const store = {

@@ -1,6 +1,7 @@
 /* Slimo Mūzika — personīgs mūzikas atskaņotājs bez reklāmām.
  * Avoti: savs serveris (server.py) → Piped → Invidious (ar automātisku pārslēgšanos). */
 'use strict';
+document.getElementById('nojs')?.remove();
 
 // ---------- Glabātuve ----------
 const store = {
